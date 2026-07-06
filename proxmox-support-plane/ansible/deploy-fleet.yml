@@ -1,7 +1,7 @@
 # ==============================================================================
 # SECURED NETWORKS LLC - MULTI-ZONE UNIFIED FLEET DEPLOYMENT
 # Target File: proxmox-support-plane/ansible/deploy-fleet.yml
-# Reference: ATT_Source_of_Truth_v5_24.3
+# Reference: ATT_Source_of_Truth_v5.3
 # Compliance: NIST SP 800-53 Rev 5 (CM-2, CM-8 Baseline Configuration)
 # ==============================================================================
 ---
@@ -44,7 +44,7 @@
     - name: Apply and Commit Network Topology Changes
       ansible.builtin.command: pvesh set /cluster/sdn
 
-- name: Phase 2 - Declarative Support Plane Container Provisioning
+- name: Phase 2 - Disaster Recovery & Declarative Support Plane Provisioning
   hosts: local_deployer
   gather_facts: false
   vars:
@@ -53,10 +53,9 @@
     pve_api_user: "ansible@pam"
     pve_api_token: "provisioner"
     pve_api_secret: "3006abce-ae0c-4307-83c2-23402b58d7b7"
-    # Discovered from Phase 1's SSH connection instead of hardcoded,
-    # since the Proxmox API needs the node's *actual* hostname, not "pve".
     pve_node_name: "{{ hostvars['pve_node']['ansible_hostname'] }}"
     default_lxc_password: "Sn-Lxc-Admin-2026!"
+    lxc_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDOcsGCff2CIhqfjk6699Au/PZAulYKI69tjWUYUDO1v ansible-provisioner@sn-llc"
     storage_pool: "local-zfs"
     os_template: "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
 
@@ -78,8 +77,22 @@
       - { name: "sn-grafana-ui", vmid: 113, mem: 1024, cores: 2, disk: 8, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.113/24,bridge=vnet40"}' }
 
   tasks:
-    - name: Provision Multi-Tenant Secure Support Plane via Proxmox REST Engine
-      community.proxmox.proxmox:
+    - name: Purge Legacy Support Plane Fleet (Rip and Rebuild)
+      community.general.proxmox:
+        api_user: "{{ pve_api_user }}"
+        api_token_id: "{{ pve_api_token }}"
+        api_token_secret: "{{ pve_api_secret }}"
+        api_host: "{{ pve_api_host }}"
+        validate_certs: false
+        vmid: "{{ item.vmid }}"
+        node: "{{ pve_node_name }}"
+        state: absent
+        force: true
+      loop: "{{ lxc_fleet }}"
+      ignore_errors: true
+
+    - name: Provision Multi-Tenant Secure Support Plane
+      community.general.proxmox:
         api_user: "{{ pve_api_user }}"
         api_token_id: "{{ pve_api_token }}"
         api_token_secret: "{{ pve_api_secret }}"
@@ -89,6 +102,7 @@
         vmid: "{{ item.vmid }}"
         node: "{{ pve_node_name }}"
         password: "{{ default_lxc_password }}"
+        pubkey: "{{ lxc_pubkey }}"
         ostemplate: "{{ os_template }}"
         memory: "{{ item.mem }}"
         cores: "{{ item.cores }}"
