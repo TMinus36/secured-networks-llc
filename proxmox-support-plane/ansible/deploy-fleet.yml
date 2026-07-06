@@ -37,9 +37,9 @@
       failed_when: false
       changed_when: "'already exists' not in vnet_creation.stderr"
       loop:
-        - { vnet: "vnet10" }
-        - { vnet: "vnet30" }
-        - { vnet: "vnet40" }
+        - { vnet: "vnet20_edge" }
+        - { vnet: "vnet30_db" }
+        - { vnet: "vnet40_obs" }
 
     - name: Apply and Commit Network Topology Changes
       ansible.builtin.command: pvesh set /cluster/sdn
@@ -64,17 +64,17 @@
       - { name: "sn-dns-unbound", vmid: 103, mem: 256, cores: 1, disk: 2, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.103/24,bridge=vmbr0,gw=10.0.0.1"}' }
       - { name: "sn-devops-gitea", vmid: 104, mem: 2048, cores: 2, disk: 16, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.104/24,bridge=vmbr0,gw=10.0.0.1"}' }
       # ZONE 2: EDGE / ACCESS
-      - { name: "sn-edge-proxy", vmid: 105, mem: 512, cores: 2, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.105/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.105/24,bridge=vnet10"}' }
-      - { name: "sn-auth-authentik", vmid: 106, mem: 2048, cores: 2, disk: 16, nesting: true, net: '{"net0":"name=eth0,ip=10.0.0.106/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.106/24,bridge=vnet10"}' }
-      - { name: "sn-guacamole-gateway", vmid: 107, mem: 2048, cores: 2, disk: 8, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.107/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.107/24,bridge=vnet10"}' }
-      - { name: "sn-tailscale-exit", vmid: 108, mem: 512, cores: 1, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.108/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.108/24,bridge=vnet10"}' }
+      - { name: "sn-edge-proxy", vmid: 105, mem: 512, cores: 2, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.105/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.105/24,bridge=vnet20_edge"}' }
+      - { name: "sn-auth-authentik", vmid: 106, mem: 2048, cores: 2, disk: 16, nesting: true, net: '{"net0":"name=eth0,ip=10.0.0.106/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.106/24,bridge=vnet20_edge"}' }
+      - { name: "sn-guacamole-gateway", vmid: 107, mem: 2048, cores: 2, disk: 8, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.107/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.107/24,bridge=vnet20_edge"}' }
+      - { name: "sn-tailscale-exit", vmid: 108, mem: 512, cores: 1, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=10.0.0.108/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.108/24,bridge=vnet20_edge"}' }
       # ZONE 3: DATA / SECRETS
-      - { name: "att-db-postgres", vmid: 109, mem: 2048, cores: 2, disk: 32, nesting: false, net: '{"net0":"name=eth0,ip=172.16.30.109/24,bridge=vnet30"}' }
-      - { name: "att-vault-secrets", vmid: 110, mem: 256, cores: 1, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=172.16.30.110/24,bridge=vnet30"}' }
+      - { name: "sn-db-postgres", vmid: 109, mem: 2048, cores: 2, disk: 32, nesting: false, net: '{"net0":"name=eth0,ip=172.16.30.109/24,bridge=vnet30_db"}' }
+      - { name: "sn-vault-secrets", vmid: 110, mem: 256, cores: 1, disk: 4, nesting: false, net: '{"net0":"name=eth0,ip=172.16.30.110/24,bridge=vnet30_db"}' }
       # ZONE 5: OBSERVABILITY
-      - { name: "sn-loki-tsdb", vmid: 111, mem: 1536, cores: 2, disk: 32, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.111/24,bridge=vnet40"}' }
-      - { name: "sn-prometheus-metrics", vmid: 112, mem: 1536, cores: 2, disk: 16, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.112/24,bridge=vnet40"}' }
-      - { name: "sn-grafana-ui", vmid: 113, mem: 1024, cores: 2, disk: 8, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.113/24,bridge=vnet40"}' }
+      - { name: "sn-loki-tsdb", vmid: 111, mem: 1536, cores: 2, disk: 32, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.111/24,bridge=vnet40_obs"}' }
+      - { name: "sn-prometheus-metrics", vmid: 112, mem: 1536, cores: 2, disk: 16, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.112/24,bridge=vnet40_obs"}' }
+      - { name: "sn-grafana-ui", vmid: 113, mem: 1024, cores: 2, disk: 8, nesting: false, net: '{"net0":"name=eth0,ip=172.16.40.113/24,bridge=vnet40_obs"}' }
 
   tasks:
     - name: Purge Legacy Support Plane Fleet (Rip and Rebuild)
