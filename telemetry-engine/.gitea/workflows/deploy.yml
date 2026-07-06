@@ -1,0 +1,38 @@
+name: Deploy ATT Telemetry Engine
+run-name: Enforcing GitOps state on FCOS VM 300
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Dockerfile'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+
+      - name: Build OCI Image
+        run: |
+          podman build -t gitea.att.local:3000/tminus36/att-telemetry:latest .
+
+      - name: Push to Local Gitea Registry
+        run: |
+          podman login gitea.att.local:3000 -u ${{ secrets.GITEA_USER }} -p ${{ secrets.GITEA_TOKEN }} --tls-verify=false
+          podman push gitea.att.local:3000/tminus36/att-telemetry:latest --tls-verify=false
+
+      - name: Trigger Stateless Quadlet Update via Systemd
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.16.30.300
+          username: core
+          key: ${{ secrets.FCOS_SSH_KEY }}
+          script: |
+            # Strict Decoupling: Infrastructure remains untouched, container logic cycles
+            podman pull gitea.att.local:3000/tminus36/att-telemetry:latest --tls-verify=false
+            systemctl --user daemon-reload
+            systemctl --user restart rust-app.service

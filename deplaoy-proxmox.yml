@@ -1,0 +1,137 @@
+# ==============================================================================
+# SECURED NETWORKS LLC - PROXMOX LXC FLEET PROVISIONING (HARDCODED)
+# Target File: 01-sn-fleet-deploy-v6.yml
+# Template: Debian 13 (Bookworm) Standard
+# Decoupling Standard: Infrastructure layout only; zero app-level configuration.
+# ==============================================================================
+---
+- name: Secured Networks LLC - Multi-Tenant Fleet Orchestration
+  hosts: localhost
+  gather_facts: false
+  vars:
+    proxmox_api_user: "ansible@pve"
+    proxmox_api_token_id: "provisioner"
+    proxmox_api_secret: "6c024a07-9a94-4298-ab6c-87587ffa9043"
+    default_lxc_password: "Sn-Lxc-Admin-2026!"
+    
+    pve_host: "10.0.0.95"
+    pve_node: "pve"
+    os_template: "local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst"
+    storage_pool: "local-zfs"
+
+    lxc_fleet:
+      # =======================================================
+      # ZONE 1: MANAGEMENT (4 GB RAM Ceiling)[cite: 1]
+      # =======================================================
+      - name: "sn-dns-unbound"
+        vmid: 103
+        mem: 256
+        cores: 1
+        disk: "2G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=10.0.0.103/24,bridge=vmbr0,gw=10.0.0.1"}'
+      - name: "sn-devops-gitea"
+        vmid: 104
+        mem: 2048
+        cores: 2
+        disk: "16G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=10.0.0.104/24,bridge=vmbr0,gw=10.0.0.1"}'
+
+      # =======================================================
+      # ZONE 2: EDGE / ACCESS (2 GB RAM Ceiling)[cite: 1]
+      # =======================================================
+      - name: "sn-edge-proxy"
+        vmid: 105
+        mem: 512
+        cores: 2
+        disk: "4G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=10.0.0.105/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.105/24,bridge=vnet10_edge"}'
+      - name: "sn-auth-authentik"
+        vmid: 106
+        mem: 2048
+        cores: 2
+        disk: "16G"
+        nesting: true
+        net: '{"net0":"name=eth0,ip=10.0.0.106/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.106/24,bridge=vnet10_edge"}'
+      - name: "sn-guacamole-gateway"
+        vmid: 107
+        mem: 2048
+        cores: 2
+        disk: "8G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=10.0.0.107/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.107/24,bridge=vnet10_edge"}'
+      - name: "sn-tailscale-exit"
+        vmid: 108
+        mem: 512
+        cores: 1
+        disk: "4G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=10.0.0.108/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.10.108/24,bridge=vnet10_edge"}'
+
+      # =======================================================
+      # ZONE 3: DATA / SECRETS (6 GB RAM Ceiling)[cite: 1]
+      # =======================================================
+      - name: "att-db-postgres"
+        vmid: 109
+        mem: 2048
+        cores: 2
+        disk: "32G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=172.16.30.109/24,bridge=vnet30_db"}'
+      - name: "att-vault-secrets"
+        vmid: 110
+        mem: 256
+        cores: 1
+        disk: "4G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=172.16.30.110/24,bridge=vnet30_db"}'
+
+      # =======================================================
+      # ZONE 5: OBSERVABILITY (4 GB RAM Ceiling)[cite: 1]
+      # =======================================================
+      - name: "sn-loki-tsdb"
+        vmid: 111
+        mem: 1536
+        cores: 2
+        disk: "32G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=172.16.40.111/24,bridge=vnet40_obs"}'
+      - name: "sn-prometheus-metrics"
+        vmid: 112
+        mem: 1536
+        cores: 2
+        disk: "16G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=172.16.40.112/24,bridge=vnet40_obs"}'
+      - name: "sn-grafana-ui"
+        vmid: 113
+        mem: 1024
+        cores: 2
+        disk: "8G"
+        nesting: false
+        net: '{"net0":"name=eth0,ip=172.16.40.113/24,bridge=vnet40_obs"}'
+
+  tasks:
+    - name: Provision Multi-Tenant LXC Fleet on Proxmox Support Plane
+      community.general.proxmox:
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_secret }}"
+        api_host: "{{ pve_host }}"
+        hostname: "{{ item.name }}"
+        vmid: "{{ item.vmid }}"
+        node: "{{ pve_node }}"
+        password: "{{ default_lxc_password }}"
+        ostemplate: "{{ os_template }}"
+        memory: "{{ item.mem }}"
+        cores: "{{ item.cores }}"
+        rootfs: "{{ storage_pool }}:{{ item.disk }}"
+        netif: "{{ item.net }}"
+        unprivileged: true
+        features:
+          nesting: "{{ item.nesting | int }}"
+        onboot: true
+        state: present
+      loop: "{{ lxc_fleet }}"
