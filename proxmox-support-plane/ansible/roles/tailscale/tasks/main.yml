@@ -1,0 +1,41 @@
+---
+- name: Install Core Tailscale Network Dependencies
+  ansible.builtin.apt:
+    name:
+      - iptables
+      - grep
+      - curl
+    state: present
+    update_cache: true
+
+- name: Add Tailscale Official GPG Key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: '0644'
+    validate_certs: true
+
+- name: Add Tailscale Official APT Repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian bookworm main"
+    state: present
+    filename: tailscale
+
+- name: Install Tailscale Package
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Assert Tailscaled Daemon Runtime State
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Authenticate support plane Node to Control Plane
+  ansible.builtin.command:
+    cmd: tailscale up --authkey={{ tailscale_authkey }} --routes=172.16.10.0/24
+  register: tailscale_init
+  changed_when: tailscale_init.rc == 0

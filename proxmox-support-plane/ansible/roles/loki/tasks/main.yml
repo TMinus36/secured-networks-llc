@@ -1,0 +1,30 @@
+---
+- name: Install loki dependencies
+  ansible.builtin.apt:
+    name:
+      - wget
+      - ca-certificates
+    state: present
+    update_cache: true
+
+- name: Create loki user
+  ansible.builtin.user:
+    name: loki
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create loki directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: loki
+    group: loki
+    mode: "0750"
+  loop:
+    - /etc/loki
+    - /var/lib/loki
+
+- name: Placeholder loki binary install
+  ansible.builtin.debug:
+    msg: "TODO: install loki binary and systemd unit"

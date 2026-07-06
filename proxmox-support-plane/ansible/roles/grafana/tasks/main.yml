@@ -1,0 +1,23 @@
+---
+- name: Install grafana dependencies
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create grafana directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/grafana
+    - /var/lib/grafana
+
+- name: Placeholder grafana install
+  ansible.builtin.debug:
+    msg: "TODO: install grafana package and service"

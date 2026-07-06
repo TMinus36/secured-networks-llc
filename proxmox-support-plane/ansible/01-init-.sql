@@ -1,23 +1,16 @@
--- database/01-init.sql
--- Foundational schema for Aegis Telematics & Transport
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Database tuning for ATT Compute Plane persistence
+CREATE DATABASE att_telemetry;
+CREATE USER att_admin WITH ENCRYPTED PASSWORD 'change_me_via_vault';
+GRANT ALL PRIVILEGES ON DATABASE att_telemetry TO att_admin;
 
-CREATE TABLE IF NOT EXISTS telemetry_ingestion (
-    event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    vehicle_id VARCHAR(50) NOT NULL,
-    driver_id VARCHAR(50) NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    latitude DECIMAL(9,6),
-    longitude DECIMAL(9,6),
-    speed_mph INTEGER CHECK (speed_mph >= 0 AND speed_mph <= 150),
-    engine_status VARCHAR(20) CHECK (engine_status IN ('ON', 'OFF', 'IDLE')),    
-    eld_status VARCHAR(30) CHECK (eld_status IN ('ON_DUTY', 'OFF_DUTY', 'DRIVING', 'SLEEPER_BERTH')),
-    raw_payload JSONB
-);
-
-CREATE INDEX idx_telemetry_timestamp ON telemetry_ingestion(timestamp);
-CREATE INDEX idx_telemetry_vehicle ON telemetry_ingestion(vehicle_id);
-CREATE INDEX idx_telemetry_driver ON telemetry_ingestion(driver_id);
-
-COMMENT ON TABLE telemetry_ingestion IS 'Core ingestion table for continuous telematics streams';
-COMMENT ON COLUMN telemetry_ingestion.raw_payload IS 'Original JSON payload for unstructured metrics and compliance audits';
+-- Optimization for high-frequency write operations
+ALTER SYSTEM SET max_connections = '100';
+ALTER SYSTEM SET shared_buffers = '512MB';
+ALTER SYSTEM SET effective_cache_size = '1536MB';
+ALTER SYSTEM SET maintenance_work_mem = '128MB';
+ALTER SYSTEM SET checkpoint_completion_target = '0.9';
+ALTER SYSTEM SET wal_buffers = '16MB';
+ALTER SYSTEM SET default_statistics_target = '100';
+ALTER SYSTEM SET random_page_cost = '1.1';
+ALTER SYSTEM SET effective_io_concurrency = '200';
+ALTER SYSTEM SET work_mem = '6MB';

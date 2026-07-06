@@ -1,0 +1,32 @@
+---
+- name: Install base dependencies
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+      - postgresql-client
+    state: present
+    update_cache: true
+
+- name: Create authentik user
+  ansible.builtin.user:
+    name: authentik
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create authentik directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: authentik
+    group: authentik
+    mode: "0750"
+  loop:
+    - /etc/authentik
+    - /var/lib/authentik
+
+- name: Placeholder authentik install
+  ansible.builtin.debug:
+    msg: "TODO: install authentik runtime and service"

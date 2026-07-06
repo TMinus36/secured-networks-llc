@@ -1,0 +1,101 @@
+---
+- name: Create Traefik System Group
+  ansible.builtin.group:
+    name: traefik
+    state: present
+    system: true
+
+- name: Create Traefik System User
+  ansible.builtin.user:
+    name: traefik
+    group: traefik
+    shell: /bin/false
+    system: true
+    create_home: false
+
+- name: Allocate Isolation Path for Reverse Proxy Architecture
+  ansible.builtin.file:
+    path: /etc/traefik
+    state: directory
+    owner: traefik
+    group: traefik
+    mode: '0750'
+
+- name: Fetch Compressed Traefik Binary Package from GitHub Releases
+  ansible.builtin.get_url:
+    url: "https://github.com/traefik/traefik/releases/download/v3.0.0/traefik_v3.0.0_linux_amd64.tar.gz"
+    dest: /tmp/traefik.tar.gz
+    mode: '0644'
+    validate_certs: true
+
+- name: Extract Traefik Native Engine Binary
+  ansible.builtin.unarchive:
+    src: /tmp/traefik.tar.gz
+    dest: /usr/local/bin/
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Build Global Infrastructure Routing Directives
+  ansible.builtin.copy:
+    dest: /etc/traefik/traefik.yml
+    owner: traefik
+    group: traefik
+    mode: '0640'
+    content: |
+      global:
+        checkNewVersion: false
+        sendAnonymousUsage: false
+
+      entryPoints:
+        web:
+          address: :80
+        websecure:
+          address: :443
+
+      providers:
+        file:
+          directory: /etc/traefik/dynamic
+          watch: true
+
+      log:
+        level: INFO
+        format: json
+
+- name: Establish Dynamic Rules Infrastructure Map
+  ansible.builtin.file:
+    path: /etc/traefik/dynamic
+    state: directory
+    owner: traefik
+    group: traefik
+    mode: '0750'
+
+- name: Generate High-Availability Traefik Engine Systemd Daemon
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/traefik.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Traefik Proxy Engine
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=traefik
+      Group=traefik
+      ExecStart=/usr/local/bin/traefik --configfile=/etc/traefik/traefik.yml
+      Restart=always
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Execute and Bind Reverse Proxy System Service
+  ansible.builtin.systemd:
+    name: traefik
+    enabled: true
+    state: started
+    daemon_reload: true

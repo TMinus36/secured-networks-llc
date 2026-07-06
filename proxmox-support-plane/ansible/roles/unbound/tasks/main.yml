@@ -1,0 +1,12 @@
+---
+- name: Install unbound
+  ansible.builtin.apt:
+    name: unbound
+    state: present
+    update_cache: true
+
+- name: Enable unbound
+  ansible.builtin.service:
+    name: unbound
+    state: started
+    enabled: true

@@ -1,0 +1,30 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - unzip
+      - libcap2-bin
+    state: present
+    update_cache: true
+
+- name: Create vault user
+  ansible.builtin.user:
+    name: vault
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create vault directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: vault
+    group: vault
+    mode: "0750"
+  loop:
+    - /etc/vault.d
+    - /var/lib/vault
+
+- name: Placeholder vault binary install
+  ansible.builtin.debug:
+    msg: "TODO: install vault binary and service"

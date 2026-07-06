@@ -1,0 +1,53 @@
+---
+# ==============================================================================
+# SECURED NETWORKS LLC - NATIVE SYSTEMD STATE ENFORCEMENT
+# Execution Scope: Support Plane Only (Network Decoupled)
+# ==============================================================================
+- name: Bootstrap all appliances
+  hosts: management:edge:data:observability
+  gather_facts: false
+  roles:
+    - role: common
+      tags: [common, bootstrap]
+
+- name: Configure management appliances
+  hosts: management
+  gather_facts: true
+  roles:
+    - role: unbound
+      tags: [unbound, dns]
+    - role: gitea
+      tags: [gitea, gitops]
+
+- name: Configure edge appliances
+  hosts: edge
+  gather_facts: true
+  roles:
+    - role: traefik
+      tags: [traefik, proxy]
+    - role: authentik
+      tags: [authentik, sso]
+    - role: guacamole
+      tags: [guacamole, access]
+    - role: tailscale
+      tags: [tailscale, vpn]
+
+- name: Configure data appliances
+  hosts: data
+  gather_facts: true
+  roles:
+    - role: postgres
+      tags: [postgres, db]
+    - role: vault
+      tags: [vault, secrets]
+
+- name: Configure observability appliances
+  hosts: observability
+  gather_facts: true
+  roles:
+    - role: loki
+      tags: [loki, logs]
+    - role: prometheus
+      tags: [prometheus, metrics]
+    - role: grafana
+      tags: [grafana, ui]

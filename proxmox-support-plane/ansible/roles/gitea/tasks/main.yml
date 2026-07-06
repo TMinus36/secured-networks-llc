@@ -1,0 +1,75 @@
+---
+- name: Create Git system group
+  ansible.builtin.group:
+    name: git
+    state: present
+    system: true
+
+- name: Create Git system user
+  ansible.builtin.user:
+    name: git
+    group: git
+    home: /var/lib/gitea
+    shell: /bin/bash
+    system: true
+    create_home: true
+
+- name: Create required directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: git
+    group: git
+    mode: '0750'
+  loop:
+    - /etc/gitea
+    - /var/lib/gitea/custom
+    - /var/lib/gitea/data
+    - /var/lib/gitea/log
+
+- name: Download Gitea binary from Official Upstream
+  ansible.builtin.get_url:
+    url: "https://dl.gitea.com/gitea/1.22.0/gitea-1.22.0-linux-amd64"
+    dest: /usr/local/bin/gitea
+    owner: root
+    group: root
+    mode: '0755'
+    validate_certs: true
+
+- name: Deploy Gitea Configuration Matrix
+  ansible.builtin.template:
+    src: app.ini.j2
+    dest: /etc/gitea/app.ini
+    owner: git
+    group: git
+    mode: '0600'
+
+- name: Deploy Gitea Systemd Service Unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/gitea.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Gitea (Git with a cup of tea)
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=git
+      Group=git
+      WorkingDirectory=/var/lib/gitea/
+      ExecStart=/usr/local/bin/gitea web --config /etc/gitea/app.ini
+      Restart=always
+      Environment=USER=git HOME=/var/lib/gitea GITEA_WORK_DIR=/var/lib/gitea
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable and start Gitea Service Engine
+  ansible.builtin.systemd:
+    name: gitea
+    enabled: true
+    state: started
+    daemon_reload: true
