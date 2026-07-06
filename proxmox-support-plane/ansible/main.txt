@@ -1,0 +1,61 @@
+.
+├── 01-init-.sql
+├── ansible.cfg
+├── app
+│   ├── Cargo.toml
+│   ├── Dockerfile
+│   └── src
+│       └── main.rs
+├── bootstrap-offline-vault.sh
+├── core.sh
+├── core.yml
+├── deploy-fleet.yml
+├── deploy-oci.yml
+├── group_vars
+│   └── all
+│       └── vault.yml
+├── inventory
+│   ├── hosts.ini
+│   └── inventory.ini
+├── main.txt
+├── roles
+│   ├── authentik
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── common
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── gitea
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── grafana
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── guacamole
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── loki
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── postgres
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── prometheus
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── tailscale
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── traefik
+│   │   └── tasks
+│   │       └── main.yml
+│   ├── unbound
+│   │   └── tasks
+│   │       └── main.yml
+│   └── vault
+│       └── tasks
+│           └── main.yml
+├── site.yml
+└── teardown-and-rebuild.sh
+
+31 directories, 28 files

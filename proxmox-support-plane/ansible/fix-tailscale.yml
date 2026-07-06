@@ -1,0 +1,42 @@
+---
+- name: Remediation of Tailscale LXC Security Privileges
+  hosts: proxmox_hosts
+  gather_facts: false
+  vars:
+    lxc_vmid: 108
+    # Assumption: Proxmox VE 8.x host environment
+    lxc_conf_path: "/etc/pve/lxc/{{ lxc_vmid }}.conf"
+
+  tasks:
+    - name: Inject tun device support and apparmor profile override
+      ansible.builtin.blockinfile:
+        path: "{{ lxc_conf_path }}"
+        marker: "# {mark} ANSIBLE MANAGED - TAILSCALE TUN ACCESS"
+        block: |
+          lxc.apparmor.profile: unconfined
+          lxc.cgroup2.devices.allow: c 10:200 rwm
+          lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+      notify: restart_tailscale_lxc
+
+  handlers:
+    - name: restart_tailscale_lxc
+      community.general.proxmox:
+        api_user: "{{ pve_api_user }}"
+        api_token_id: "{{ pve_api_token }}"
+        api_token_secret: "{{ pve_api_secret }}"
+        api_host: "{{ pve_api_host }}"
+        vmid: "{{ lxc_vmid }}"
+        state: restarted
+
+- name: Force Service Backend Re-initialization
+  hosts: sn-tailscale-exit
+  tasks:
+    - name: Cleanup stale tailscale socket and restart service
+      ansible.builtin.shell: |
+        systemctl stop tailscaled
+        rm -f /var/run/tailscale/tailscaled.sock
+        systemctl restart tailscaled
+        # Assumption: Authkey is provided via environment variables in the runner environment
+        tailscale up --authkey="{{ lookup('env', 'TS_AUTHKEY') }}" --advertise-exit-node --accept-routes
+      register: tailscale_reinit
+```[cite: 5, 7]
