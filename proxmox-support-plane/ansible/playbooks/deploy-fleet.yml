@@ -1,0 +1,95 @@
+# 01-sn-fleet-deploy.yml
+---
+- name: Secured Networks LLC - Multi-Tenant Fleet Orchestration (Debian 13 Baseline)
+  hosts: proxmox
+  gather_facts: false
+  vars:
+    proxmox_api_user: "ansible@pve"
+    proxmox_api_token_id: "provisioner"
+    proxmox_api_secret: "REPLACE_WITH_VAULT_SECRET"
+    default_lxc_password: "REPLACE_WITH_VAULT_PASSWORD"
+    pve_host: "10.0.0.10"
+    pve_node: "pve"
+    os_template: "local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst"
+    lxc_fleet:
+      # ZONE 4: SECURITY
+      - name: "sn-wazuh-siem"
+        vmid: 102
+        mem: 10240
+        net: '{"net0":"name=eth0,ip=10.0.0.102/24,bridge=vmbr0,gw=10.0.0.1"}'
+      
+      # ZONE 1: MANAGEMENT
+      - name: "sn-dns-unbound"
+        vmid: 103
+        mem: 256
+        net: '{"net0":"name=eth0,ip=10.0.0.103/24,bridge=vmbr0,gw=10.0.0.1"}'
+      - name: "sn-devops-gitea"
+        vmid: 104
+        mem: 2048
+        net: '{"net0":"name=eth0,ip=10.0.0.104/24,bridge=vmbr0,gw=10.0.0.1"}'
+      
+      # ZONE 2: EDGE / ACCESS
+      - name: "sn-edge-proxy"
+        vmid: 105
+        mem: 512
+        net: '{"net0":"name=eth0,ip=10.0.0.105/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.20.105/24,bridge=vnet20_edge"}'
+      - name: "sn-auth-authentik"
+        vmid: 106
+        mem: 2048
+        net: '{"net0":"name=eth0,ip=10.0.0.106/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.20.106/24,bridge=vnet20_edge"}'
+      - name: "sn-guacamole-gateway"
+        vmid: 107
+        mem: 2048
+        net: '{"net0":"name=eth0,ip=10.0.0.107/24,bridge=vmbr0,gw=10.0.0.1", "net1":"name=eth1,ip=172.16.20.107/24,bridge=vnet20_edge"}'
+
+      # ZONE 3: DATA / SECRETS
+      - name: "sn-db-postgres"
+        vmid: 109
+        mem: 2048
+        net: '{"net0":"name=eth0,ip=172.16.30.109/24,bridge=vnet30_db"}'
+      - name: "sn-vault-secrets"
+        vmid: 110
+        mem: 256
+        net: '{"net0":"name=eth0,ip=172.16.30.110/24,bridge=vnet30_db"}'
+
+      # ZONE 5: OBSERVABILITY
+      - name: "sn-loki-tsdb"
+        vmid: 111
+        mem: 1024
+        net: '{"net0":"name=eth0,ip=172.16.40.111/24,bridge=vnet40_obs"}'
+      - name: "sn-prometheus-metrics"
+        vmid: 112
+        mem: 1024
+        net: '{"net0":"name=eth0,ip=172.16.40.112/24,bridge=vnet40_obs"}'
+      - name: "sn-grafana-ui"
+        vmid: 113
+        mem: 512
+        net: '{"net0":"name=eth0,ip=172.16.40.113/24,bridge=vnet40_obs"}'
+
+  tasks:
+    - name: Purge Legacy Tailscale Exit Node (LXC 108)
+      community.general.proxmox:
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_secret }}"
+        api_host: "{{ pve_host }}"
+        vmid: 108
+        state: absent
+
+    - name: Provision Multi-Tenant LXC Fleet (Debian 13 Base)
+      community.general.proxmox:
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_secret }}"
+        api_host: "{{ pve_host }}"
+        hostname: "{{ item.name }}"
+        vmid: "{{ item.vmid }}"
+        node: "{{ pve_node }}"
+        password: "{{ default_lxc_password }}"
+        ostemplate: "{{ os_template }}"
+        memory: "{{ item.mem }}"
+        cores: 2
+        netif: "{{ item.net }}"
+        unprivileged: true
+        state: present
+      loop: "{{ lxc_fleet }}"

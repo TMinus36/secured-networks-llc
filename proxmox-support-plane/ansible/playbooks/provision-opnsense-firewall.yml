@@ -1,0 +1,52 @@
+---
+- name: Provision OPNsense Inter-Zone Firewall Rules
+  hosts: localhost
+  collections:
+    - oxlorg.opnsense
+    
+  module_defaults:
+    group/oxlorg.opnsense.all:
+      firewall: "10.0.0.2"
+      api_key: "9JQYOEFUSrWEurqYwSeJUs67jFPixXRz0480WKyFpzr8+u1c/qkrxiEAFyj9BnTOXLNyaueVC0EVp2QT"
+      api_secret: "Hwj0oSHc6lKRmfP+w87DOeTCm5MbxIDi0mr51lJkaR3sbjLWXALGEL0s5AfyL9LuY4b6+7gnvayRXJG6"
+      ssl_verify: false
+
+  tasks:
+    - name: Allow FCOS Compute to reach Postgres
+      oxlorg.opnsense.rule:
+        interface: opt3
+        protocol: tcp
+        source_net: 172.16.20.200
+        destination_net: 172.16.30.103
+        destination_port: 5432
+        action: pass
+        description: "Allow FCOS to Database"
+        state: present
+        match_fields: 
+          - description
+
+    - name: Allow FCOS Compute to reach Vault
+      oxlorg.opnsense.rule:
+        interface: opt3
+        protocol: tcp
+        source_net: 172.16.20.200
+        destination_net: 172.16.30.104
+        destination_port: 8200
+        action: pass
+        description: "Allow FCOS to Vault"
+        state: present
+        match_fields: 
+          - description
+
+    - name: Allow Compute Telemetry to Wazuh
+      oxlorg.opnsense.rule:
+        interface: opt3
+        protocol: tcp
+        source_net: 172.16.20.200
+        destination_net: 172.16.40.200
+        destination_port: 1514-1515
+        action: pass
+        description: "Allow FCOS Telemetry"
+        state: present
+        match_fields: 
+          - description

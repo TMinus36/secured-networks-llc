@@ -1,0 +1,111 @@
+---
+- name: Zone 1 Management - Full-Lifecycle Gitea Deployment
+  hosts: sn-devops-gitea
+  become: true
+  gather_facts: true
+  vars:
+    gitea_version: "1.22.1"
+    gitea_db_host: "172.16.30.109:5432"
+
+  tasks:
+    - name: Create Git System Group
+      ansible.builtin.group:
+        name: git
+        state: present
+        system: true
+
+    - name: Create Git System User
+      ansible.builtin.user:
+        name: git
+        group: git
+        home: /var/lib/gitea
+        shell: /bin/bash
+        system: true
+
+    - name: Create Standard Gitea Directory Hierarchy
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: git
+        group: git
+        mode: '0750'
+      loop:
+        - /etc/gitea
+        - /var/lib/gitea
+        - /var/lib/gitea/data
+        - /var/lib/gitea/main
+        - /var/log/gitea
+
+    - name: Download Gitea Binary
+      ansible.builtin.get_url:
+        url: "https://github.com/go-gitea/gitea/releases/download/v{{ gitea_version }}/gitea-{{ gitea_version }}-linux-amd64"
+        dest: /usr/local/bin/gitea
+        owner: root
+        group: root
+        mode: '0755'
+      notify: Restart Gitea
+
+    - name: Enforce App Configuration (app.ini)
+      ansible.builtin.copy:
+        dest: /etc/gitea/app.ini
+        owner: git   # [FIX APPLIED]: Changed from root to git
+        group: git   # [FIX APPLIED]: Changed from root to git
+        mode: '0640'
+        content: |
+          [server]
+          APP_NAME = TMinus36 Enterprise GitOps
+          RUN_USER = git
+          RUN_MODE = prod
+          SSH_DOMAIN = 10.0.0.104
+          DOMAIN = gitea.att.local
+          HTTP_PORT = 3000
+          ROOT_URL = http://gitea.att.local:3000/
+          DISABLE_SSH = false
+          SSH_PORT = 22
+
+          [database]
+          DB_TYPE = postgres
+          HOST = {{ gitea_db_host }}
+          NAME = giteadb
+          USER = gitea_admin
+          PASSWD = {{ vault_gitea_db_pass }}
+      notify: Restart Gitea
+
+    - name: Deploy Gitea Systemd Unit File
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/gitea.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Gitea (Git with a cup of tea)
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=git
+          Group=git
+          WorkingDirectory=/var/lib/gitea/
+          ExecStart=/usr/local/bin/gitea web --config /etc/gitea/app.ini
+          Restart=always
+          Environment=USER=git HOME=/var/lib/gitea GITEA_WORK_DIR=/var/lib/gitea
+          CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+          AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart Gitea
+
+    - name: Ensure Gitea is Enabled and Running
+      ansible.builtin.systemd:
+        name: gitea
+        state: started
+        enabled: true
+        daemon_reload: true
+
+  handlers:
+    - name: Restart Gitea
+      ansible.builtin.systemd:
+        name: gitea
+        state: restarted

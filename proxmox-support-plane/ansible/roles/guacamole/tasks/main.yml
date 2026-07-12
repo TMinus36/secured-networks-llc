@@ -1,67 +1,30 @@
+# 05-configure-guacamole.yml
 ---
-- name: Install Tomcat Runtime and Guacd Engines via APT
-  ansible.builtin.apt:
-    name:
-      - tomcat10
-      - guacd
-      - libguac-client-ssh0
-      - libguac-client-vnc0
-      - libguac-client-rdp0
-    state: present
-    update_cache: true
+- name: Zone 2 Access Gateway - Guacamole Deployment
+  hosts: sn-guacamole-gateway
+  become: true
+  vars:
+    guac_db_host: "172.16.30.109"
+  tasks:
+    - name: Deploy Guacamole Properties
+      ansible.builtin.copy:
+        dest: /etc/guacamole/guacamole.properties
+        owner: root
+        group: root
+        mode: '0640'
+        content: |
+          guacd-hostname: localhost
+          guacd-port: 4822
 
-- name: Enforce Guacamole Context Directory Matrix
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: tomcat
-    group: tomcat
-    mode: '0750'
-  loop:
-    - /etc/guacamole
-    - /etc/guacamole/extensions
-    - /etc/guacamole/lib
+          postgresql-hostname: {{ guac_db_host }}
+          postgresql-port: 5432
+          postgresql-database: guacamoledb
+          postgresql-username: guac_admin
+          postgresql-password: {{ vault_guac_db_pass }}
 
-- name: Fetch Guacamole Web Deployment Archive from Official Mirror
-  ansible.builtin.get_url:
-    url: "https://downloads.apache.org/guacamole/1.5.5/binary/guacamole-1.5.5.war"
-    dest: /var/lib/tomcat10/webapps/guacamole.war
-    owner: tomcat
-    group: tomcat
-    mode: '0644'
-    validate_certs: true
-
-- name: Deploy Apache Guacamole Static Properties
-  ansible.builtin.copy:
-    dest: /etc/guacamole/guacamole.properties
-    owner: tomcat
-    group: tomcat
-    mode: '0600'
-    content: |
-      guacd-hostname: localhost
-      guacd-port: 4822
-      auth-provider: net.sourceforge.guacamole.net.auth.usermapping.UserMappingAuthenticationProvider
-      user-mapping: /etc/guacamole/user-mapping.xml
-
-- name: Compile Security Access Control Mappings
-  ansible.builtin.template:
-    src: user-mapping.xml.j2
-    dest: /etc/guacamole/user-mapping.xml
-    owner: tomcat
-    group: tomcat
-    mode: '0600'
-
-- name: Mount Configuration Link into Tomcat Service Context
-  ansible.builtin.file:
-    src: /etc/guacamole
-    dest: /usr/share/tomcat10/.guacamole
-    state: link
-
-- name: Commit and Restart Guacamole Service Stack
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: restarted
-    enabled: true
-  loop:
-    - tomcat10
-    - guacd
+          openid-authorization-endpoint: https://auth.att.local/application/o/authorize/
+          openid-jwks-endpoint: https://auth.att.local/application/o/guacamole/jwks/
+          openid-issuer: https://auth.att.local/application/o/guacamole/
+          openid-client-id: {{ vault_guac_oidc_client_id }}
+          openid-redirect-uri: https://guac.att.local/
+          openid-username-claim-type: preferred_username
