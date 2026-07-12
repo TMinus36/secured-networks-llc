@@ -1,5 +1,5 @@
 ---
-- name: Provision OPNsense Inter-Zone Firewall Rules
+- name: Provision OPNsense Inter-Zone Firewall Rules (Full Fleet)
   hosts: localhost
   collections:
     - oxlorg.opnsense
@@ -12,7 +12,10 @@
       ssl_verify: false
 
   tasks:
-    - name: Allow FCOS Compute to reach Postgres
+    # ---------------------------------------------------------
+    # COMPUTE PLANE (ZONE 6 - OPT3) OUTBOUND RULES
+    # ---------------------------------------------------------
+    - name: Allow FCOS Compute to reach Postgres (Data Zone)
       oxlorg.opnsense.rule:
         interface: opt3
         protocol: tcp
@@ -22,10 +25,9 @@
         action: pass
         description: "Allow FCOS to Database"
         state: present
-        match_fields: 
-          - description
+        match_fields: [description]
 
-    - name: Allow FCOS Compute to reach Vault
+    - name: Allow FCOS Compute to reach Vault (Data Zone)
       oxlorg.opnsense.rule:
         interface: opt3
         protocol: tcp
@@ -35,10 +37,9 @@
         action: pass
         description: "Allow FCOS to Vault"
         state: present
-        match_fields: 
-          - description
+        match_fields: [description]
 
-    - name: Allow Compute Telemetry to Wazuh
+    - name: Allow Compute Telemetry to Wazuh (Security Zone)
       oxlorg.opnsense.rule:
         interface: opt3
         protocol: tcp
@@ -46,7 +47,117 @@
         destination_net: 172.16.40.200
         destination_port: 1514-1515
         action: pass
-        description: "Allow FCOS Telemetry"
+        description: "Allow FCOS to Wazuh SIEM"
         state: present
-        match_fields: 
-          - description
+        match_fields: [description]
+
+    - name: Allow Compute Logs to Loki (Observability Zone)
+      oxlorg.opnsense.rule:
+        interface: opt3
+        protocol: tcp
+        source_net: 172.16.20.200
+        destination_net: 172.16.50.111
+        destination_port: 3100
+        action: pass
+        description: "Allow FCOS Promtail to Loki"
+        state: present
+        match_fields: [description]
+
+    - name: Allow Compute Arcane Agent to Arcane Server (Mgmt Zone)
+      oxlorg.opnsense.rule:
+        interface: opt3
+        protocol: tcp
+        source_net: 172.16.20.200
+        destination_net: 10.0.0.101
+        destination_port: 8080
+        action: pass
+        description: "Allow FCOS Arcane Agent to GUI"
+        state: present
+        match_fields: [description]
+
+    # ---------------------------------------------------------
+    # MANAGEMENT PLANE (ZONE 1/2 - OPT1) OUTBOUND RULES
+    # ---------------------------------------------------------
+    - name: Allow Gitea to reach Postgres (Data Zone)
+      oxlorg.opnsense.rule:
+        interface: opt1
+        protocol: tcp
+        source_net: 10.0.0.101
+        destination_net: 172.16.30.103
+        destination_port: 5432
+        action: pass
+        description: "Allow Gitea to Postgres"
+        state: present
+        match_fields: [description]
+
+    - name: Allow Support Plane Telemetry to Wazuh (Security Zone)
+      oxlorg.opnsense.rule:
+        interface: opt1
+        protocol: tcp
+        source_net: 10.0.0.0/24
+        destination_net: 172.16.40.200
+        destination_port: 1514-1515
+        action: pass
+        description: "Allow Support Plane to Wazuh SIEM"
+        state: present
+        match_fields: [description]
+
+    - name: Allow Support Plane Logs to Loki (Observability Zone)
+      oxlorg.opnsense.rule:
+        interface: opt1
+        protocol: tcp
+        source_net: 10.0.0.0/24
+        destination_net: 172.16.50.111
+        destination_port: 3100
+        action: pass
+        description: "Allow Support Plane Promtail to Loki"
+        state: present
+        match_fields: [description]
+
+    # ---------------------------------------------------------
+    # DATA PLANE (ZONE 3 - OPT2) OUTBOUND RULES
+    # ---------------------------------------------------------
+    - name: Allow Data Plane Telemetry to Wazuh (Security Zone)
+      oxlorg.opnsense.rule:
+        interface: opt2
+        protocol: tcp
+        source_net: 172.16.30.0/24
+        destination_net: 172.16.40.200
+        destination_port: 1514-1515
+        action: pass
+        description: "Allow Data Plane to Wazuh SIEM"
+        state: present
+        match_fields: [description]
+
+    - name: Allow Data Plane Logs to Loki (Observability Zone)
+      oxlorg.opnsense.rule:
+        interface: opt2
+        protocol: tcp
+        source_net: 172.16.30.0/24
+        destination_net: 172.16.50.111
+        destination_port: 3100
+        action: pass
+        description: "Allow Data Plane Promtail to Loki"
+        state: present
+        match_fields: [description]
+
+    # ---------------------------------------------------------
+    # GLOBAL DNS ACCESS (APPLIED TO ALL RELEVANT INTERFACES)
+    # ---------------------------------------------------------
+    - name: Allow Inter-Zone DNS Resolution (TCP/UDP 53)
+      oxlorg.opnsense.rule:
+        interface: "{{ item }}"
+        protocol: TCP/UDP
+        source_net: any
+        destination_net: 10.0.0.100
+        destination_port: 53
+        action: pass
+        description: "Global Unbound DNS Access"
+        state: present
+        match_fields: [description]
+      loop:
+        - opt1
+        - opt2
+        - opt3
+        - opt4
+        - opt5
