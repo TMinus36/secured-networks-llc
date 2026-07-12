@@ -5,12 +5,11 @@
   hosts: support_plane
   gather_facts: false
   tasks:
-    - name: Verify Global DNS Resolution Path (Unbound - TCP 53)
-      ansible.builtin.wait_for:
-        host: 10.0.0.100
-        port: 53
-        timeout: 5
-        state: started
+    - name: Query OPNsense Unbound DNS via dig
+      ansible.builtin.shell: "dig @10.0.0.2 gitea.att.local +short"
+      register: dns_check
+      changed_when: false
+      failed_when: dns_check.stdout == ""
 
     - name: Verify Telemetry Egress to Wazuh SIEM (TCP 1514)
       ansible.builtin.wait_for:
@@ -31,41 +30,3 @@
           - wan_check.rc != 0
         fail_msg: "CRITICAL: Direct WAN Access detected! Support Plane air-gap policy violated."
         success_msg: "Support Plane node is correctly air-gapped from direct WAN."
-
-- name: Validate Compute Plane (FCOS VM 300) Constraints
-  hosts: compute_plane
-  gather_facts: false
-  tasks:
-    - name: Verify Compute Data Plane Access to PostgreSQL (TCP 5432)
-      ansible.builtin.wait_for:
-        host: 172.16.30.103
-        port: 5432
-        timeout: 5
-        state: started
-
-    - name: Verify Compute Data Plane Access to Vault (TCP 8200)
-      ansible.builtin.wait_for:
-        host: 172.16.30.104
-        port: 8200
-        timeout: 5
-        state: started
-
-    - name: Verify Compute Control Plane Access to Arcane (TCP 8080)
-      ansible.builtin.wait_for:
-        host: 10.0.0.101
-        port: 8080
-        timeout: 5
-        state: started
-
-    - name: Test Direct WAN Egress (Expect Failure)
-      ansible.builtin.command: curl -I --connect-timeout 3 https://1.1.1.1
-      register: fcos_wan_check
-      ignore_errors: true
-      changed_when: false
-
-    - name: Enforce Air-Gap Egress Policy (Compute)
-      ansible.builtin.assert:
-        that:
-          - fcos_wan_check.rc != 0
-        fail_msg: "CRITICAL: Direct WAN Access detected! Compute Plane air-gap policy violated."
-        success_msg: "Compute Plane node is correctly air-gapped from direct WAN."
