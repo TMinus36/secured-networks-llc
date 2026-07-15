@@ -17,6 +17,7 @@
         port: 1514
         timeout: 5
         state: started
+      when: inventory_hostname != '172.16.40.200'  # Skip self-check
 
     - name: Test Direct WAN Egress (Expect Failure)
       ansible.builtin.command: curl -I --connect-timeout 3 https://1.1.1.1
