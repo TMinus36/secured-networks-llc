@@ -1,0 +1,27 @@
+---
+- name: Proxmox Hypervisor Orchestration
+  hosts: proxmox_nodes
+  gather_facts: false
+  # Force loading the vault file regardless of group structure
+  vars_files:
+    - ../../group_vars/all/vault.yml
+  vars:
+    # Ensure these match your actual inventory
+    pve_api_host: "100.103.87.67"
+    containers:
+      - { vmid: 108, hostname: "sn-kms-provider" }
+      - { vmid: 110, hostname: "sn-secrets-bao" }
+      - { vmid: 104, hostname: "sn-devops-gitea" }
+
+  tasks:
+    - name: Ensure all required containers are running
+      community.general.proxmox:
+        api_host: "{{ pve_api_host }}"
+        api_user: "ansible@pve"
+        api_token_id: "provisioner"
+        api_token_secret: "{{ vault_proxmox_api_secret }}"
+        node: "pve"
+        vmid: "{{ item.vmid }}"
+        hostname: "{{ item.hostname }}"
+        state: started
+      loop: "{{ containers }}"
